@@ -10,13 +10,9 @@ readme = "README.md"
 requires-python = ">=3.10"
 
 dependencies = [
-    "flake8",
-    "mypy",
     "pydantic>=2.0.0",
     "numpy",
     "llm_sdk",
-    "accelerate",
-    "transformers",
 ]
 
 classifiers = [
@@ -27,11 +23,11 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest", "mypy", "flake8"]
-
 [tool.uv.sources]
 llm_sdk = { path = "./llm_sdk", editable = true }
+
+[tool.setuptools]
+packages = ["src"]
 
 [tool.mypy]
 python_version = "3.10"
@@ -41,5 +37,9 @@ ignore_missing_imports = true
 disallow_untyped_defs = true
 check_untyped_defs = true
 
-[tool.flake8]
-exclude = [".git", "__pycache__", "build", "dist"]
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+]

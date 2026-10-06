@@ -1,52 +1,67 @@
 import json
-from typing import List
+from typing import Any
+
+from pydantic import BaseModel
+
 from src.models import FunctionDefinition
 
 SYSTEM_PROMPT_TEMPLATE = """You are a function calling assistant.
-Given the following available functions, respond ONLY with a valid JSON object matching the required structure.
+Given the available functions, output ONE JSON object with the function \
+name and its parameters.
+
+Rules:
+- Pick the function whose description best matches the request.
+- Copy string values exactly as written by the user.
+- For regex parameters, write a regex that matches the CONCEPT described, \
+not the words used to describe it (a class of characters goes inside [...]).
+- For replacement parameters, write the literal replacement characters \
+(the symbol itself, not its name).
+- Keep every value as short as possible.
+- Escape double quotes inside string values with a backslash.
 
 Available Functions:
 {functions_catalog}
 
-Output JSON format:
-{{
-  "name": "<function_name>",
-  "parameters": {{
-    "<parameter_name>": <value>
-  }}
-}}
+Examples of the expected output format:
+Request: Multiply 4 by 7
+Answer: {{"name": "fn_multiply", "parameters": {{"a": 4, "b": 7}}}}
+Request: Replace all spaces in 'a b c' with dashes
+Answer: {{"name": "fn_replace", "parameters": {{"text": "a b c", \
+"pattern": " ", "replacement": "-"}}}}
+Request: Replace all uppercase letters in 'aBcD' with hashes
+Answer: {{"name": "fn_replace", "parameters": {{"text": "aBcD", \
+"pattern": "[A-Z]", "replacement": "#"}}}}
 
-User prompt: {user_prompt}
-JSON response:"""
+Request: {user_prompt}
+Answer:"""
 
 
-class PromptBuilder:
+class PromptBuilder(BaseModel):
 
     @staticmethod
-    def format_functions_catalog(list_of_functions: List[FunctionDefinition]) -> str:
-        list_of_dit: list[dict] = []
-
+    def format_functions_catalog(
+        list_of_functions: list[FunctionDefinition],
+    ) -> str:
+        catalog: list[dict[str, Any]] = []
         for function in list_of_functions:
             parameters_dict = {
-                param_name: param_info.model_dump()
-                for param_name, param_info in function.parameters.items()
+                name: info.model_dump(exclude_none=True)
+                for name, info in function.parameters.items()
             }
-
-            dictionary = {
+            catalog.append({
                 "name": function.name,
                 "description": function.description,
                 "parameters": parameters_dict,
-            }
-            list_of_dit.append(dictionary)
-        return json.dumps(list_of_dit, indent=2)
+            })
+        return json.dumps(catalog, ensure_ascii=False,
+                          separators=(",", ":"))
 
     @staticmethod
-    def build_prompt(list_of_functions: List[FunctionDefinition], user_prompt: str) -> str:
-        catalog_string = PromptBuilder.format_functions_catalog(list_of_functions)
-
-        final_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            functions_catalog=catalog_string,
-            user_prompt=user_prompt
+    def build_prompt(
+        list_of_functions: list[FunctionDefinition], user_prompt: str
+    ) -> str:
+        return SYSTEM_PROMPT_TEMPLATE.format(
+            functions_catalog=PromptBuilder.format_functions_catalog(
+                list_of_functions),
+            user_prompt=user_prompt,
         )
-
-        return (final_prompt)

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "fn_sum_list",
+    "description": "Sum a list of numbers.",
+    "parameters": {"values": {"type": "array", "items": {"type": "number"}}},
+    "returns": {"type": "number"}
+  },
+  {
+    "name": "fn_add_point",
+    "description": "Place a point at coordinates x and y.",
+    "parameters": {"point": {"type": "object", "properties": {
+      "x": {"type": "number"}, "y": {"type": "number"}}}},
+    "returns": {"type": "string"}
+  },
+  {
+    "name": "fn_tag_items",
+    "description": "Attach a list of tags to an item name.",
+    "parameters": {
+      "item": {"type": "string"},
+      "tags": {"type": "array", "items": {"type": "string"}}},
+    "returns": {"type": "string"}
+  }
+]

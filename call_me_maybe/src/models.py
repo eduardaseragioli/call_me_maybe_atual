@@ -1,8 +1,10 @@
-from pydantic import BaseModel, ValidationError
-from typing import Any, Dict
+from pydantic import BaseModel
+from typing import Any
 
 class TypeInfo(BaseModel):
     type: str
+    items: "TypeInfo | None" = None
+    properties: "dict[str, TypeInfo] | None" = None
 
 class FunctionDefinition(BaseModel):
     name: str
@@ -16,4 +18,8 @@ class TestCase(BaseModel):
 class FunctionCallResult(BaseModel): 
     prompt: str
     name: str
-    parameters: Dict[str, Any]
+    parameters: dict[str, Any]
+
+class DecoderSettings(BaseModel):
+    verbose: bool = False
+    model_name: str = "Qwen/Qwen3-0.6B"

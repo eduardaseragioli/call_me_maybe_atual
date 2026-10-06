@@ -1,0 +1,5 @@
+[
+  {"prompt": "Sum the numbers 4, 8 and 15"},
+  {"prompt": "Put a point at x 3 and y 7"},
+  {"prompt": "Tag the item 'lamp' with 'home' and 'light'"}
+]

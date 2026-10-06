@@ -6,3 +6,6 @@ venv/
 *.egg-info/
 dist/
 build/
+data/output/
+.pytest_cache/
+.flake8_cache/

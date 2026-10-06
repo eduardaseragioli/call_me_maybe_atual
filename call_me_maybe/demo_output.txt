@@ -1,0 +1,11 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Loading weights:   0%|          | 0/311 [00:00<?, ?it/s]Loading weights:   0%|          | 1/311 [00:01<06:25,  1.24s/it]Loading weights:  74%|███████▍  | 230/311 [00:01<00:00, 235.81it/s]Loading weights: 100%|██████████| 311/311 [00:01<00:00, 191.39it/s]
+1. ENCODE: prompt -> 426 ids
+   last 6 ids:    [16141, 25, 5212, 606, 788, 330]
+   as text:       ['Answer', ':', ' {"', 'name', '":', ' "']
+2. LOGITS (no mask):
+   'fn'(39.6)  ' fn'(26.0)  'fun'(23.6)  'gn'(23.0)  'func'(22.6)
+3. MASK: only 2 of 151643 tokens can start a function name:
+   'fn'(39.6)  'f'(18.8)  '!'(-inf)  '三大'(-inf)  '锦'(-inf)
+4. RESULT: fn_greet {'name': 'john'}
+5. DECODE round trip OK: True -> {"name": "fn_greet"}

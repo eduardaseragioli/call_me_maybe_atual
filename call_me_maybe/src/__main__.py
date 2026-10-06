@@ -1,22 +1,18 @@
 import argparse
 import sys
+import time
 from pathlib import Path
 
-
 ROOT_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT_DIR / "llm_sdk" / "llm_sdk"))
 sys.path.insert(0, str(ROOT_DIR / "llm_sdk"))
 
-from custom_tokenizer import CustomTokenizer
+from llm_sdk import Small_LLM_Model
+
+from src.constrained_decoder import ConstrainedDecoder
+from src.custom_tokenizer import CustomTokenizer
+from src.models import FunctionCallResult, DecoderSettings
 from src.parser import Parser
-from prompt_builder import PromptBuilder
-
-try:
-    from llm_sdk import Small_LLM_Model
-except ImportError:
-    from llm_sdk.llm_sdk import Small_LLM_Model
-
-
+from src.prompt_builder import PromptBuilder
 
 def parse_arguments() -> argparse.Namespace:
     """Configures and processes command-line arguments."""
@@ -42,47 +38,102 @@ def parse_arguments() -> argparse.Namespace:
         default="data/output/function_calling_results.json",
         help=" Path to the output JSON file containing the results.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Show, token by token, what the model wanted vs. what the "
+             "mask allowed.",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="Qwen/Qwen3-0.6B",
+        help="Hugging Face model id (must use a Qwen-style byte-level "
+             "BPE tokenizer: vocab.json + merges.txt).",
+    )
 
     return parser.parse_args()
 
-
 def main() -> None:
     args = parse_arguments()
-
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    settings = DecoderSettings(verbose=args.verbose, model_name=args.model)
 
     functions = Parser.load_functions(args.functions_definition)
     tests = Parser.load_tests(args.input)
+    if not functions or not tests:
+        print("Error: invalid or empty input files.", file=sys.stderr)
+        sys.exit(1)
 
-    print(f"Funções carregadas: {len(functions)}")
-    for fn in functions:
-        print(f" - {fn.name}: {fn.description}")
+    print(f"Functions loaded: {len(functions)}")
+    print(f"Tests loaded: {len(tests)}")
 
-    print(f"\nTestes carregados: {len(tests)}")
-    for test in tests:
-        print(f" - Prompt: {test.prompt}")
+    print("\nLoading model and tokenizer...")
+    try:
+        model = Small_LLM_Model(model_name=settings.model_name)
+        tokenizer = CustomTokenizer(
+            model.get_path_to_vocab_file(),
+            model.get_path_to_merges_file(),
+        )
+        decoder = ConstrainedDecoder(
+            model_llm=model,
+            tokenizer=tokenizer,
+            functions=functions,
+            verbose=settings.verbose,
+        )
+    except Exception as e:
+        print(f"Error: could not initialize the model: {e}",
+              file=sys.stderr)
+        sys.exit(1)
 
+    results: list[FunctionCallResult] = []
+    print("\nStarting constrained decoding...\n")
+    start = time.perf_counter()
 
-    if tests and functions:
-        sample_prompt = PromptBuilder.build_prompt(functions, tests[0].prompt)
-        print("\n--- Exemplo de Prompt Gerado ---")
-        print(sample_prompt)
+    for idx, test in enumerate(tests, 1):
+        print(f"--- [Test {idx}/{len(tests)}] ---")
+        print(f"Prompt: {test.prompt}")
+        t0 = time.perf_counter()
+        try:
+            formatted_prompt = PromptBuilder.build_prompt(
+                functions, test.prompt)
+            result = decoder.generate_with_recovery(
+                formatted_prompt, test.prompt)
+        except Exception as e:
+            print(f"Error on this prompt, skipping: {e}\n",
+                  file=sys.stderr)
+            continue
 
+        print(f"Function: {result.name}")
+        print(f"Parameters: {result.parameters}")
+        print(f"Time: {time.perf_counter() - t0:.1f}s\n")
+        if settings.verbose:
+            avg = decoder.forward_time / max(decoder.forward_calls, 1)
+            print(f"Model calls: {decoder.forward_calls}, avg {avg:.2f}s")
+        decoder.forward_calls = 0
+        decoder.forward_time = 0.0
+        results.append(result)
 
-    #model = Small_LLM_Model()
-    #vocab_path = model.get_path_to_vocab_file()
+    total = time.perf_counter() - start
+    print(f"Total generation time: {total:.1f}s")
+    if total > 300:
+        print("Warning: exceeded the 5-minute limit.", file=sys.stderr)
 
-    #tokenizer = CustomTokenizer(vocab_path)
+    if not results:
+        print("Error: no results were generated.", file=sys.stderr)
+        sys.exit(1)
 
-    #texto_original = "Hello world"
-    #ids = tokenizer.encode(texto_original)
-   # texto_recuperado = tokenizer.decode(ids)
+    output_path = Path(args.output)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"Error: cannot create output directory: {e}",
+              file=sys.stderr)
+        sys.exit(1)
 
-    #print(f"Original: {texto_original}")
-    #print(f"IDs: {ids}")
-    #print(f"Recuperado: {texto_recuperado}")
-
+    if Parser.save_results(results, str(output_path)):
+        print(f"Done! Results saved to: {output_path}")
+    else:
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
