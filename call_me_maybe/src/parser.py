@@ -4,6 +4,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 from src.models import FunctionDefinition, TestCase, FunctionCallResult
 
+
 class Parser(BaseModel):
 
     @staticmethod

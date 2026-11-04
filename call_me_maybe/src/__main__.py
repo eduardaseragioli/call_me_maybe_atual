@@ -6,18 +6,21 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "llm_sdk"))
 
-from llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model # noqa: E402
 
-from src.constrained_decoder import ConstrainedDecoder
-from src.custom_tokenizer import CustomTokenizer
-from src.models import FunctionCallResult, DecoderSettings
-from src.parser import Parser
-from src.prompt_builder import PromptBuilder
+from src.constrained_decoder import ConstrainedDecoder # noqa: E402
+from src.custom_tokenizer import CustomTokenizer # noqa: E402
+from src.models import FunctionCallResult, DecoderSettings # noqa: E402
+from src.parser import Parser # noqa: E402
+from src.prompt_builder import PromptBuilder # noqa: E402
+
 
 def parse_arguments() -> argparse.Namespace:
     """Configures and processes command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Call Me Maybe - Function Calling using Constrained Decoding"
+        description=(
+            "Call Me Maybe - Function Calling using Constrained Decoding"
+        )
     )
 
     parser.add_argument(
@@ -54,7 +57,9 @@ def parse_arguments() -> argparse.Namespace:
 
     return parser.parse_args()
 
+
 def main() -> None:
+    """Run the full pipeline: load inputs, generate calls, save results."""
     args = parse_arguments()
     settings = DecoderSettings(verbose=args.verbose, model_name=args.model)
 
@@ -66,6 +71,14 @@ def main() -> None:
 
     print(f"Functions loaded: {len(functions)}")
     print(f"Tests loaded: {len(tests)}")
+
+    output_path = Path(args.output)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        print(f"Error: cannot create output directory: {e}",
+              file=sys.stderr)
+        sys.exit(1)
 
     print("\nLoading model and tokenizer...")
     try:
@@ -122,18 +135,11 @@ def main() -> None:
         print("Error: no results were generated.", file=sys.stderr)
         sys.exit(1)
 
-    output_path = Path(args.output)
-    try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-    except OSError as e:
-        print(f"Error: cannot create output directory: {e}",
-              file=sys.stderr)
-        sys.exit(1)
-
     if Parser.save_results(results, str(output_path)):
         print(f"Done! Results saved to: {output_path}")
     else:
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

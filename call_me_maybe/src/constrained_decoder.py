@@ -5,8 +5,8 @@ import time
 from typing import Any, Sequence
 from collections import OrderedDict
 import numpy as np
-from pydantic import BaseModel
 from src.models import FunctionDefinition, FunctionCallResult, TypeInfo
+from pydantic import BaseModel, ConfigDict
 
 FLOAT_PREFIX = re.compile(r"-?\d*\.?\d*")
 FLOAT_FULL = re.compile(r"-?\d+(\.\d+)?")
@@ -16,10 +16,14 @@ CACHE_SIZE = 16
 STUCK_WINDOW = 6
 MAX_ITEMS = 16
 
+
 class DecodingError(Exception):
+    """Raised when decoding reaches a dead end."""
     pass
 
+
 class DecodingConfig(BaseModel):
+    """Knobs that change between recovery attempts."""
     max_value_tokens: int = 64
     repeat_penalty: float = 0.0
     strict: bool = True
@@ -31,8 +35,16 @@ ATTEMPTS = [
     DecodingConfig(repeat_penalty=5.0, max_value_tokens=24, strict=False),
 ]
 
-class ConstrainedDecoder:
-    def __init__(self, model_llm: Any, tokenizer: Any, functions: list[FunctionDefinition],  verbose: bool = False) -> None:
+
+class ConstrainedDecoder(BaseModel):
+    """Decoder that masks logits so only schema-valid tokens survive."""
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+
+    def __init__(self, model_llm: Any, tokenizer: Any,
+                 functions: list[FunctionDefinition],
+                 verbose: bool = False) -> None:
+        """Precompute the text of every token and the static masks."""
+        super().__init__()
         self.model = model_llm
         self.tokenizer = tokenizer
         self.functions = {fn.name: fn for fn in functions}
@@ -56,6 +68,7 @@ class ConstrainedDecoder:
             dtype=np.int64)
         self.name_ids = self._candidate_ids(list(self.functions))
         self.bool_ids = self._candidate_ids(["true", "false"])
+        self._opener_cache: dict[str, list[int]] = {}
         self.array_end_ids = [
             i for i, t in enumerate(self.texts)
             if t and len(t) <= 2 and t.strip() in (",", "]")]
@@ -99,11 +112,11 @@ class ConstrainedDecoder:
             if self.verbose:
                 print(f"  forced: {self.texts[int(allowed[0])]!r}")
             return int(allowed[0])
-    
+
         logits = self._logits(ids)
         cand = np.asarray(allowed, dtype=np.int64)
         cand = cand[cand < logits.shape[0]]
-    
+
         if cand.size == 0:
             raise DecodingError("allowed tokens outside vocabulary")
 
@@ -145,12 +158,13 @@ class ConstrainedDecoder:
             ids.append(tok)
 
     def _gen_number(self, ids: list[int], integer: bool,
-                    enders: list[int] | None = None) -> float | int:
+                    enders: list[int] | None = None,
+                    start: str = "") -> float | int:
         ender_ids = self.end_ids if enders is None else enders
         ender_set = set(ender_ids)
         prefix_re = INT_PREFIX if integer else FLOAT_PREFIX
         full_re = INT_FULL if integer else FLOAT_FULL
-        text = ""
+        text = start
         for _ in range(self.config.max_value_tokens):
             allowed = [i for i in self.number_ids
                        if prefix_re.fullmatch(text + self.texts[i])]
@@ -165,6 +179,7 @@ class ConstrainedDecoder:
             return int(text) if integer else float(text)
         except ValueError as exc:
             raise DecodingError(f"invalid number {text!r}") from exc
+
     @staticmethod
     def _is_stuck(tokens: list[int]) -> bool:
         w = STUCK_WINDOW
@@ -182,9 +197,49 @@ class ConstrainedDecoder:
                 return i
         return -1
 
-    def _gen_string(self, ids: list[int]) -> str:
+    def _opener_ids(self, opener: str) -> list[int]:
+        """Tokens that start with 'opener' (cached, built once)."""
+        cached = self._opener_cache.get(opener)
+        if cached is None:
+            cached = [i for i, t in enumerate(self.texts)
+                      if t.startswith(opener)
+                      and all(ord(c) >= 32 for c in t)]
+            self._opener_cache[opener] = cached
+        return cached
+
+    def _close_string(self, ids: list[int], raw: str) -> str:
+        """Write the closing quote and decode JSON escapes."""
+        ids.extend(self.tokenizer.encode('"'))
+        try:
+            return str(json.loads(f'"{raw}"'))
+        except json.JSONDecodeError:
+            return raw
+
+    def _gen_quoted(self, ids: list[int], lead: str) -> str:
+        """Open a string letting the model pick a natural first token."""
+        enc = self.tokenizer.encode
+        head = lead.rstrip()
+        opener = lead[len(head):] + '"'
+        options = self._opener_ids(opener) if opener != '"' else []
+        if not options:
+            ids.extend(enc(lead + '"'))
+            return self._gen_string(ids)
+        if head:
+            ids.extend(enc(head))
+        tok = self._pick(ids, options)
+        start = self.texts[tok][len(opener):]
+        cut = self._closing_quote("", start)
+        if cut >= 0:
+            raw = start[:cut]
+            ids.extend(enc(opener + raw))
+            return self._close_string(ids, raw)
+        ids.append(tok)
+        return self._gen_string(ids, start)
+
+    def _gen_string(self, ids: list[int], start: str = "") -> str:
+        """Generate a JSON string; an unescaped '"' closes it."""
         gen: list[int] = []
-        pieces: list[str] = []
+        pieces: list[str] = [start] if start else []
         for _ in range(self.config.max_value_tokens):
             tok = self._pick(ids, self.string_allowed, gen[-20:])
             text = self.texts[tok]
@@ -203,12 +258,7 @@ class ConstrainedDecoder:
                     raise DecodingError("model stuck repeating tokens")
                 del pieces[-STUCK_WINDOW:]
                 break
-        raw = "".join(pieces)
-        ids.extend(self.tokenizer.encode('"'))
-        try:
-            return str(json.loads(f'"{raw}"'))
-        except json.JSONDecodeError:
-            return raw
+        return self._close_string(ids, "".join(pieces))
 
     def generate(self, prompt_formatted: str, original_prompt: str) -> FunctionCallResult:
         enc = self.tokenizer.encode
@@ -247,7 +297,7 @@ class ConstrainedDecoder:
                             for k, p in props.items()))
         return False
 
-    def validate(self, result: FunctionCallResult) -> str | None:
+    def validate_result(self, result: FunctionCallResult) -> str | None:
         fn = self.functions.get(result.name)
         if fn is None:
             return f"unknown function {result.name!r}"
@@ -271,17 +321,37 @@ class ConstrainedDecoder:
             raise DecodingError(f"unsupported type: {info.type}")
         return starts[info.type]
 
+    def _gen_signed(self, ids: list[int], lead: str, integer: bool,
+                    enders: list[int] | None) -> float | int:
+        """Open a number letting the model pick ' ' or ' -' naturally."""
+        enc = self.tokenizer.encode
+        head = lead.rstrip()
+        gap = lead[len(head):]
+        key = "num:" + gap
+        options = self._opener_cache.get(key)
+        if options is None:
+            options = [i for i, t in enumerate(self.texts)
+                       if gap and t in (gap, gap + "-")]
+            self._opener_cache[key] = options
+        if len(options) < 2:
+            if lead:
+                ids.extend(enc(lead))
+            return self._gen_number(ids, integer, enders)
+        if head:
+            ids.extend(enc(head))
+        tok = self._pick(ids, options)
+        ids.append(tok)
+        return self._gen_number(ids, integer, enders,
+                                self.texts[tok][len(gap):])
+
     def _gen_value(self, ids: list[int], info: TypeInfo, lead: str = "",
                    enders: list[int] | None = None) -> Any:
         enc = self.tokenizer.encode
         kind = info.type
         if kind == "string":
-            ids.extend(enc(lead + '"'))
-            return self._gen_string(ids)
+            return self._gen_quoted(ids, lead)
         if kind in ("number", "integer"):
-            if lead:
-                ids.extend(enc(lead))
-            value = self._gen_number(ids, kind == "integer", enders)
+            value = self._gen_signed(ids, lead, kind == "integer", enders)
             return int(value) if kind == "integer" else float(value)
         if kind == "boolean":
             if lead:
@@ -339,7 +409,7 @@ class ConstrainedDecoder:
             except DecodingError as exc:
                 reason = str(exc)
             else:
-                problem = self.validate(result)
+                problem = self.validate_result(result)
                 if problem is None:
                     return result
                 best, reason = result, problem
@@ -348,4 +418,3 @@ class ConstrainedDecoder:
         if best is not None:
             return best
         raise DecodingError(f"all attempts failed: {reason}")
-

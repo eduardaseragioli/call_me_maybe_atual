@@ -23,7 +23,7 @@ def decode(params: dict[str, Any], target: str) -> FunctionCallResult:
     model = ScriptedModel(tok, prefix_len, target)
     decoder = ConstrainedDecoder(model, tok, [fn(params)])
     result = decoder.generate(PROMPT, PROMPT)
-    assert decoder.validate(result) is None
+    assert decoder.validate_result(result) is None
     return result
 
 

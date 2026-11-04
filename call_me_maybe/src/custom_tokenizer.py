@@ -1,6 +1,8 @@
 import json
 import re
 
+from pydantic import BaseModel, ConfigDict
+
 PAT = re.compile(
     r"(?i:'s|'t|'re|'ve|'m|'ll|'d)"
     r"|(?:(?![\r\n])[\W_])?[^\W\d_]+"
@@ -10,6 +12,7 @@ PAT = re.compile(
     r"|\s+(?!\S)"
     r"|\s+"
 )
+
 
 def _bytes_to_unicode() -> dict[int, str]:
     """Map every byte to a printable character (GPT-2 scheme)."""
@@ -25,11 +28,17 @@ def _bytes_to_unicode() -> dict[int, str]:
             n += 1
     return {b: chr(c) for b, c in zip(bs, cs)}
 
-class CustomTokenizer:
+
+class CustomTokenizer(BaseModel):
+    """Byte-level BPE tokenizer (Qwen compatible)."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     def __init__(self, vocab_path: str, merges_path: str) -> None:
+        super().__init__()
         with open(vocab_path, encoding="utf-8") as f:
             self.token_to_id: dict[str, int] = json.load(f)
+
         self.id_to_token: dict[int, str] = {
             v: k for k, v in self.token_to_id.items()}
         self.vocab_size: int = max(self.id_to_token) + 1
@@ -56,7 +65,8 @@ class CustomTokenizer:
             best = min(pairs, key=lambda p: self.ranks.get(p, 10**9))
             if best not in self.ranks:
                 break
-            merged: list[str] = []
+            merged: list[str] = [] 
+
             i = 0
             while i < len(parts):
                 if (i < len(parts) - 1

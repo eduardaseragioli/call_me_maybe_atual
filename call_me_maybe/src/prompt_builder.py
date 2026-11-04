@@ -12,6 +12,8 @@ name and its parameters.
 Rules:
 - Pick the function whose description best matches the request.
 - Copy string values exactly as written by the user.
+- Copy string values character by character, including leading slashes, \
+quotes and punctuation. Do not add or remove anything.
 - For regex parameters, write a regex that matches the CONCEPT described, \
 not the words used to describe it (a class of characters goes inside [...]).
 - For replacement parameters, write the literal replacement characters \
@@ -31,6 +33,12 @@ Answer: {{"name": "fn_replace", "parameters": {{"text": "a b c", \
 Request: Replace all uppercase letters in 'aBcD' with hashes
 Answer: {{"name": "fn_replace", "parameters": {{"text": "aBcD", \
 "pattern": "[A-Z]", "replacement": "#"}}}}
+Request: Open the file /var/log/app.log
+Answer: {{"name": "fn_open", "parameters": {{"path": "/var/log/app.log"}}}}
+Request: Show the message: He said "stop" now
+Answer: {{"name": "fn_show", "parameters": {{"text": "He said \\"stop\\" now"}}}}
+
+Reminder: copy every string value exactly from the request, character by character.
 
 Request: {user_prompt}
 Answer:"""

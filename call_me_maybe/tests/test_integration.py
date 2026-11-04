@@ -32,4 +32,4 @@ def test_every_output_matches_the_schema(text: str) -> None:
     decoder = ConstrainedDecoder(model, tok, functions)
     result = decoder.generate_with_recovery(
         PromptBuilder.build_prompt(functions, text), text)
-    assert decoder.validate(result) is None
+    assert decoder.validate_result(result) is None

@@ -149,10 +149,10 @@ def test_validate_catches_wrong_types() -> None:
     missing = FunctionCallResult(prompt="p", name="fn_add",
                                  parameters={"a": 1.0})
     unknown = FunctionCallResult(prompt="p", name="nope", parameters={})
-    assert decoder.validate(good) is None
-    assert decoder.validate(bad_type) is not None
-    assert decoder.validate(missing) is not None
-    assert decoder.validate(unknown) is not None
+    assert decoder.validate_result(good) is None
+    assert decoder.validate_result(bad_type) is not None
+    assert decoder.validate_result(missing) is not None
+    assert decoder.validate_result(unknown) is not None
 
 
 def make_decoder() -> ConstrainedDecoder:
