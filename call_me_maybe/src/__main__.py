@@ -6,13 +6,13 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "llm_sdk"))
 
-from llm_sdk import Small_LLM_Model # noqa: E402
+from llm_sdk import Small_LLM_Model  # noqa: E402
 
-from src.constrained_decoder import ConstrainedDecoder # noqa: E402
-from src.custom_tokenizer import CustomTokenizer # noqa: E402
-from src.models import FunctionCallResult, DecoderSettings # noqa: E402
-from src.parser import Parser # noqa: E402
-from src.prompt_builder import PromptBuilder # noqa: E402
+from src.constrained_decoder import ConstrainedDecoder  # noqa: E402
+from src.custom_tokenizer import CustomTokenizer  # noqa: E402
+from src.models import FunctionCallResult, DecoderSettings  # noqa: E402
+from src.parser import Parser  # noqa: E402
+from src.prompt_builder import PromptBuilder  # noqa: E402
 
 
 def parse_arguments() -> argparse.Namespace:

@@ -65,7 +65,7 @@ class CustomTokenizer(BaseModel):
             best = min(pairs, key=lambda p: self.ranks.get(p, 10**9))
             if best not in self.ranks:
                 break
-            merged: list[str] = [] 
+            merged: list[str] = []
 
             i = 0
             while i < len(parts):

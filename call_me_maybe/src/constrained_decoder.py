@@ -260,7 +260,8 @@ class ConstrainedDecoder(BaseModel):
                 break
         return self._close_string(ids, "".join(pieces))
 
-    def generate(self, prompt_formatted: str, original_prompt: str) -> FunctionCallResult:
+    def generate(self, prompt_formatted: str,
+                 original_prompt: str) -> FunctionCallResult:
         enc = self.tokenizer.encode
         ids: list[int] = enc(prompt_formatted + ' {"name": "')
 

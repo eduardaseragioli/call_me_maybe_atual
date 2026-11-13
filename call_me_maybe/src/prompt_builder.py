@@ -36,9 +36,11 @@ Answer: {{"name": "fn_replace", "parameters": {{"text": "aBcD", \
 Request: Open the file /var/log/app.log
 Answer: {{"name": "fn_open", "parameters": {{"path": "/var/log/app.log"}}}}
 Request: Show the message: He said "stop" now
-Answer: {{"name": "fn_show", "parameters": {{"text": "He said \\"stop\\" now"}}}}
+Answer: {{"name": "fn_show", "parameters":
+    {{"text": "He said \\"stop\\" now"}}}}
 
-Reminder: copy every string value exactly from the request, character by character.
+Reminder: copy every string value exactly from the request,
+    character by character.
 
 Request: {user_prompt}
 Answer:"""
