@@ -1,5 +1,3 @@
-"""Constrained decoder: structure, types, mask and recovery."""
-
 from typing import Any
 
 import pytest

@@ -1,5 +1,3 @@
-"""Prompt construction."""
-
 from src.prompt_builder import PromptBuilder
 from tests.test_decoder import make_functions
 

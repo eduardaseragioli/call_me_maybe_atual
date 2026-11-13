@@ -22,7 +22,6 @@ def parse_arguments() -> argparse.Namespace:
             "Call Me Maybe - Function Calling using Constrained Decoding"
         )
     )
-
     parser.add_argument(
         "--functions_definition",
         type=str,

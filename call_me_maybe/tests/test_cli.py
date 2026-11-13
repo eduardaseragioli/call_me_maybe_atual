@@ -1,5 +1,3 @@
-"""The program must exit cleanly on bad input, never with a traceback."""
-
 import sys
 from pathlib import Path
 

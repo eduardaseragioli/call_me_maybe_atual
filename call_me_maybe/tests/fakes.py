@@ -1,5 +1,3 @@
-"""Tiny fake tokenizer and models so decoder tests run without the LLM."""
-
 import string
 
 CHARS = string.ascii_letters + string.digits + " _.,-:{}\"'\\()[]+*?|^$/"

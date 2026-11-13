@@ -1,5 +1,3 @@
-"""End-to-end check with the real model. Slow: needs the weights."""
-
 from pathlib import Path
 
 import pytest

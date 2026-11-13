@@ -1,5 +1,3 @@
-"""Nested arguments: arrays and objects."""
-
 from typing import Any
 
 from src.constrained_decoder import ConstrainedDecoder

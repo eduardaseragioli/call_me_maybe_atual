@@ -1,5 +1,3 @@
-"""Parser edge cases: missing, broken and malformed input files."""
-
 import json
 from pathlib import Path
 from typing import Any

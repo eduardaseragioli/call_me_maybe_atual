@@ -1,5 +1,3 @@
-"""CustomTokenizer on a tiny synthetic byte-level BPE vocabulary."""
-
 import json
 from pathlib import Path
 
