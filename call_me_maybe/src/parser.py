@@ -6,12 +6,14 @@ from src.models import FunctionDefinition, TestCase, FunctionCallResult
 
 
 class Parser(BaseModel):
+    """Handles reading, validating, and writing JSON files for the pipeline."""
 
     @staticmethod
     def _read_list(file_path: str) -> list[Any] | None:
+        """Reads a JSON file and validates that its root element is a list."""
         try:
             with open(file_path, encoding="utf-8") as file:
-                data = json.load(file)
+                data: Any = json.load(file)
         except FileNotFoundError:
             print(f"Error: file not found: {file_path}", file=sys.stderr)
             return None
@@ -31,7 +33,8 @@ class Parser(BaseModel):
 
     @staticmethod
     def load_functions(file_path: str) -> list[FunctionDefinition]:
-        data = Parser._read_list(file_path)
+        """Loads and validates function definitions from a JSON file."""
+        data: list[Any] | None = Parser._read_list(file_path)
         if data is None:
             return []
         try:
@@ -43,7 +46,8 @@ class Parser(BaseModel):
 
     @staticmethod
     def load_tests(file_path: str) -> list[TestCase]:
-        data = Parser._read_list(file_path)
+        """Loads and validates test cases from a JSON file."""
+        data: list[Any] | None = Parser._read_list(file_path)
         if data is None:
             return []
         try:
@@ -56,8 +60,9 @@ class Parser(BaseModel):
     @staticmethod
     def save_results(results: list[FunctionCallResult],
                      file_path: str) -> bool:
+        """Serializes and saves function call results to a JSON file."""
         try:
-            data = [result.model_dump() for result in results]
+            data: list[dict[str, Any]] = [result.model_dump() for result in results]
             with open(file_path, "w", encoding="utf-8") as file:
                 json.dump(data, file, indent=2, ensure_ascii=False)
         except OSError as exc:

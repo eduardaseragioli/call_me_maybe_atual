@@ -1,5 +1,5 @@
 import json
-from typing import Any
+from typing import Any, List, Dict
 
 from pydantic import BaseModel
 
@@ -36,25 +36,28 @@ Answer: {{"name": "fn_replace", "parameters": {{"text": "aBcD", \
 Request: Open the file /var/log/app.log
 Answer: {{"name": "fn_open", "parameters": {{"path": "/var/log/app.log"}}}}
 Request: Show the message: He said "stop" now
-Answer: {{"name": "fn_show", "parameters":
-    {{"text": "He said \\"stop\\" now"}}}}
+Answer: {{"name": "fn_show", "parameters": {{"text": \
+"He said \\"stop\\" now"}}}}
 
-Reminder: copy every string value exactly from the request,
-    character by character.
+Reminder: copy every string value exactly from the request, \
+character by character.
 
 Request: {user_prompt}
 Answer:"""
 
 
 class PromptBuilder(BaseModel):
+    """Builds and formats system prompts containing function definitions and user requests."""
 
     @staticmethod
     def format_functions_catalog(
         list_of_functions: list[FunctionDefinition],
     ) -> str:
+        """Formats a list of function definitions into a compact JSON string catalog."""
+
         catalog: list[dict[str, Any]] = []
         for function in list_of_functions:
-            parameters_dict = {
+            parameters_dict: dict[str, Any] = {
                 name: info.model_dump(exclude_none=True)
                 for name, info in function.parameters.items()
             }
@@ -70,6 +73,8 @@ class PromptBuilder(BaseModel):
     def build_prompt(
         list_of_functions: list[FunctionDefinition], user_prompt: str
     ) -> str:
+        """Builds the final prompt string by filling the system prompt template."""
+        
         return SYSTEM_PROMPT_TEMPLATE.format(
             functions_catalog=PromptBuilder.format_functions_catalog(
                 list_of_functions),

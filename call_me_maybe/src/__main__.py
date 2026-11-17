@@ -10,14 +10,14 @@ from llm_sdk import Small_LLM_Model  # noqa: E402
 
 from src.constrained_decoder import ConstrainedDecoder  # noqa: E402
 from src.custom_tokenizer import CustomTokenizer  # noqa: E402
-from src.models import FunctionCallResult, DecoderSettings  # noqa: E402
-from src.parser import Parser  # noqa: E402
+from src.models import (  # noqa: E402
+    DecoderSettings, FunctionCallResult, FunctionDefinition, TestCase)
 from src.prompt_builder import PromptBuilder  # noqa: E402
 
 
 def parse_arguments() -> argparse.Namespace:
     """Configures and processes command-line arguments."""
-    parser = argparse.ArgumentParser(
+    parser: argparse.ArgumentParser = argparse.ArgumentParser(
         description=(
             "Call Me Maybe - Function Calling using Constrained Decoding"
         )
@@ -59,11 +59,13 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     """Run the full pipeline: load inputs, generate calls, save results."""
-    args = parse_arguments()
-    settings = DecoderSettings(verbose=args.verbose, model_name=args.model)
+    args: argparse.Namespace = parse_arguments()
+    settings: DecoderSettings = DecoderSettings(
+        verbose=args.verbose, model_name=args.model)
 
-    functions = Parser.load_functions(args.functions_definition)
-    tests = Parser.load_tests(args.input)
+    functions: list[FunctionDefinition] = Parser.load_functions(
+        args.functions_definition)
+    tests: list[TestCase] = Parser.load_tests(args.input)
     if not functions or not tests:
         print("Error: invalid or empty input files.", file=sys.stderr)
         sys.exit(1)
@@ -71,7 +73,7 @@ def main() -> None:
     print(f"Functions loaded: {len(functions)}")
     print(f"Tests loaded: {len(tests)}")
 
-    output_path = Path(args.output)
+    output_path: Path = Path(args.output)
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
     except OSError as e:
@@ -81,12 +83,13 @@ def main() -> None:
 
     print("\nLoading model and tokenizer...")
     try:
-        model = Small_LLM_Model(model_name=settings.model_name)
-        tokenizer = CustomTokenizer(
+        model: Small_LLM_Model = Small_LLM_Model(
+            model_name=settings.model_name)
+        tokenizer: CustomTokenizer = CustomTokenizer(
             model.get_path_to_vocab_file(),
             model.get_path_to_merges_file(),
         )
-        decoder = ConstrainedDecoder(
+        decoder: ConstrainedDecoder = ConstrainedDecoder(
             model_llm=model,
             tokenizer=tokenizer,
             functions=functions,
@@ -99,16 +102,16 @@ def main() -> None:
 
     results: list[FunctionCallResult] = []
     print("\nStarting constrained decoding...\n")
-    start = time.perf_counter()
+    start: float = time.perf_counter()
 
     for idx, test in enumerate(tests, 1):
         print(f"--- [Test {idx}/{len(tests)}] ---")
         print(f"Prompt: {test.prompt}")
-        t0 = time.perf_counter()
+        t0: float = time.perf_counter()
         try:
-            formatted_prompt = PromptBuilder.build_prompt(
+            formatted_prompt: str = PromptBuilder.build_prompt(
                 functions, test.prompt)
-            result = decoder.generate_with_recovery(
+            result: FunctionCallResult = decoder.generate_with_recovery(
                 formatted_prompt, test.prompt)
         except Exception as e:
             print(f"Error on this prompt, skipping: {e}\n",
@@ -119,13 +122,13 @@ def main() -> None:
         print(f"Parameters: {result.parameters}")
         print(f"Time: {time.perf_counter() - t0:.1f}s\n")
         if settings.verbose:
-            avg = decoder.forward_time / max(decoder.forward_calls, 1)
+            avg: float = decoder.forward_time / max(decoder.forward_calls, 1)
             print(f"Model calls: {decoder.forward_calls}, avg {avg:.2f}s")
         decoder.forward_calls = 0
         decoder.forward_time = 0.0
         results.append(result)
 
-    total = time.perf_counter() - start
+    total: float = time.perf_counter() - start
     print(f"Total generation time: {total:.1f}s")
     if total > 300:
         print("Warning: exceeded the 5-minute limit.", file=sys.stderr)
