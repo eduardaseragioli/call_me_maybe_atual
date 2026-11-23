@@ -12,6 +12,7 @@ from src.constrained_decoder import ConstrainedDecoder  # noqa: E402
 from src.custom_tokenizer import CustomTokenizer  # noqa: E402
 from src.models import (  # noqa: E402
     DecoderSettings, FunctionCallResult, FunctionDefinition, TestCase)
+from src.parser import Parser  # noqa: E402
 from src.prompt_builder import PromptBuilder  # noqa: E402
 
 
