@@ -2,7 +2,7 @@ import json
 import sys
 import re
 import time
-from typing import Any, Sequence, Dict, List, Tuple, Optional, Set
+from typing import Any, Sequence, List, Optional
 from collections import OrderedDict
 import numpy as np
 from src.models import FunctionDefinition, FunctionCallResult, TypeInfo
@@ -48,7 +48,8 @@ class ConstrainedDecoder(BaseModel):
         super().__init__()
         self.model: Any = model_llm
         self.tokenizer: Any = tokenizer
-        self.functions: dict[str, FunctionDefinition] = {fn.name: fn for fn in functions}
+        self.functions: dict[str, FunctionDefinition] = {
+                                  fn.name: fn for fn in functions}
         self.verbose: bool = verbose
         self.config: DecodingConfig = DecodingConfig()
         self.forward_calls: int = 0
@@ -56,12 +57,14 @@ class ConstrainedDecoder(BaseModel):
         self._cache: OrderedDict[tuple[int, ...], np.ndarray] = \
             OrderedDict()
         self.texts: list[str] = [tokenizer.token_text(i)
-                      for i in range(tokenizer.vocab_size)]
+                                 for i in range(tokenizer.vocab_size)]
         self.quote_id: int = tokenizer.token_to_id['"']
         self.number_ids: list[int] = [i for i, t in enumerate(self.texts)
-                           if t and all(c in "0123456789.-" for c in t)]
+                                      if t and all(c in "0123456789.-"
+                                                   for c in t)]
         self.end_ids: list[int] = [i for i, t in enumerate(self.texts)
-                        if t and len(t) <= 2 and t.strip() in (",", "}")]
+                                   if t and len(t) <= 2 and t.strip()
+                                   in (",", "}")]
         self.end_set: set[int] = set(self.end_ids)
         self.string_allowed: np.ndarray = np.array(
             [i for i, t in enumerate(self.texts)
@@ -79,7 +82,7 @@ class ConstrainedDecoder(BaseModel):
         self.open_obj_id: int = ids_of["{"]
         self.open_arr_id: int = ids_of["["]
         self.num_start_ids: list[int] = [i for i in self.number_ids
-                              if self.texts[i][0] in "0123456789-"]
+                                         if self.texts[i][0] in "0123456789-"]
         self.bool_start_ids: list[int] = [
             i for i in self.bool_ids
             if "true".startswith(self.texts[i])
@@ -92,7 +95,8 @@ class ConstrainedDecoder(BaseModel):
                 if t and any(t in o for o in options)]
 
     def _logits(self, ids: list[int]) -> np.ndarray:
-        """Retrieves or computes logits from the model for a sequence of token IDs, with caching."""
+        """Retrieves or computes logits from the model
+                       for a sequence of token IDs, with caching."""
 
         key: tuple[int, ...] = tuple(ids)
         hit: Optional[np.ndarray] = self._cache.get(key)
@@ -100,7 +104,8 @@ class ConstrainedDecoder(BaseModel):
             self._cache.move_to_end(key)
             return hit
         t: float = time.perf_counter()
-        result: np.ndarray = np.asarray(self.model.get_logits_from_input_ids(ids),
+        result: np.ndarray = np.asarray(
+                            self.model.get_logits_from_input_ids(ids),
                             dtype=np.float32)
         self.forward_time += time.perf_counter() - t
         self.forward_calls += 1
@@ -111,11 +116,13 @@ class ConstrainedDecoder(BaseModel):
 
     def _pick(self, ids: list[int], allowed: Sequence[int] | np.ndarray,
               recent: Sequence[int] = ()) -> int:
-        """Picks the best token from allowed candidates based on masked logits."""
+        """Picks the best token from allowed candidates
+                                 based on masked logits."""
 
         if len(allowed) == 0:
             raise DecodingError("no valid token to choose from")
         if len(allowed) == 1:
+
             if self.verbose:
                 print(f"  forced: {self.texts[int(allowed[0])]!r}")
             return int(allowed[0])
@@ -138,7 +145,8 @@ class ConstrainedDecoder(BaseModel):
 
     def _trace(self, logits: np.ndarray, cand: np.ndarray,
                chosen: int) -> None:
-        """Prints verbose debugging information about model preferences versus allowed tokens."""
+        """Prints verbose debugging information about
+                        model preferences versus allowed tokens."""
 
         top: np.ndarray = np.argpartition(logits, -3)[-3:]
         top = top[np.argsort(-logits[top])]
@@ -155,7 +163,8 @@ class ConstrainedDecoder(BaseModel):
 
         cur: str = ""
         while True:
-            longer: list[str] = [o for o in options if o.startswith(cur) and o != cur]
+            longer: list[str] = [o for o in options
+                                 if o.startswith(cur) and o != cur]
             if cur in options and not longer:
                 return cur
             allowed: list[int] = [i for i in cands if any(
@@ -171,7 +180,8 @@ class ConstrainedDecoder(BaseModel):
     def _gen_number(self, ids: list[int], integer: bool,
                     enders: list[int] | None = None,
                     start: str = "") -> float | int:
-        """Generates a numeric value token by token according to schema restrictions."""
+        """Generates a numeric value token by
+                          token according to schema restrictions."""
 
         ender_ids: list[int] = self.end_ids if enders is None else enders
         ender_set: set[int] = set(ender_ids)
@@ -180,7 +190,7 @@ class ConstrainedDecoder(BaseModel):
         text: str = start
         for _ in range(self.config.max_value_tokens):
             allowed: list[int] = [i for i in self.number_ids
-                       if prefix_re.fullmatch(text + self.texts[i])]
+                                  if prefix_re.fullmatch(text + self.texts[i])]
             if full_re.fullmatch(text):
                 allowed = allowed + ender_ids
             tok: int = self._pick(ids, allowed)
@@ -281,13 +291,14 @@ class ConstrainedDecoder(BaseModel):
 
     def generate(self, prompt_formatted: str,
                  original_prompt: str) -> FunctionCallResult:
-        """Executes constrained decoding to generate a complete function call result."""
+        """Executes constrained decoding to
+                    generate a complete function call result."""
 
         enc: Any = self.tokenizer.encode
         ids: list[int] = enc(prompt_formatted + ' {"name": "')
 
         name: str = self._choose(ids, list(self.functions),
-                            self.name_ids, allow_quote_end=True)
+                                 self.name_ids, allow_quote_end=True)
         ids += enc('", "parameters": {')
 
         params: dict[str, Any] = {}
@@ -300,7 +311,8 @@ class ConstrainedDecoder(BaseModel):
                                   parameters=params)
 
     def _matches(self, value: Any, info: TypeInfo) -> bool:
-        """Validates whether a runtime value matches the expected TypeInfo schema."""
+        """Validates whether a runtime value
+                    matches the expected TypeInfo schema."""
 
         kind: str = info.type
         if kind == "number":
@@ -387,8 +399,8 @@ class ConstrainedDecoder(BaseModel):
         if kind == "boolean":
             if lead:
                 ids.extend(enc(lead))
-            val: str = self._choose(ids, ["true", "false"], self.bool_ids,
-                               allow_quote_end=False)
+            val: str = self._choose(ids, ["true", "false"],
+                                    self.bool_ids, allow_quote_end=False)
             return val == "true"
         if kind == "array":
             return self._gen_array(ids, info, lead)
@@ -435,14 +447,16 @@ class ConstrainedDecoder(BaseModel):
 
     def generate_with_recovery(self, prompt_formatted: str,
                                original_prompt: str) -> FunctionCallResult:
-        """Attempts generation with recovery retry strategies if decoding fails."""
+        """Attempts generation with recovery
+                         retry strategies if decoding fails."""
 
         best: FunctionCallResult | None = None
         reason: str = "unknown"
         for attempt, cfg in enumerate(ATTEMPTS, 1):
             self.config = cfg
             try:
-                result: FunctionCallResult = self.generate(prompt_formatted, original_prompt)
+                result: FunctionCallResult = self.generate(
+                                             prompt_formatted, original_prompt)
             except DecodingError as exc:
                 reason = str(exc)
             else:

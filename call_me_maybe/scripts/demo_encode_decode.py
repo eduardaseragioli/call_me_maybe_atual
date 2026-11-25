@@ -1,6 +1,5 @@
 import sys
 from pathlib import Path
-from typing import List, Set, Optional, Dict, Any
 
 import numpy as np
 
@@ -34,12 +33,12 @@ def show_top(tok: CustomTokenizer, logits: np.ndarray,
 
 def main() -> None:
     """Walk through one decoding step and a full round trip."""
-    
+
     functions: list[FunctionDefinition] = Parser.load_functions(
         "data/input/functions_definition.json")
     model: Small_LLM_Model = Small_LLM_Model()
     tok: CustomTokenizer = CustomTokenizer(model.get_path_to_vocab_file(),
-                          model.get_path_to_merges_file())
+                                           model.get_path_to_merges_file())
     decoder: ConstrainedDecoder = ConstrainedDecoder(model, tok, functions)
 
     request: str = "Greet john"
@@ -50,13 +49,13 @@ def main() -> None:
     print("   as text:      ", [tok.token_text(i) for i in ids[-6:]])
 
     logits: np.ndarray = np.asarray(model.get_logits_from_input_ids(ids),
-                        dtype=np.float32)
+                                    dtype=np.float32)
     print("2. LOGITS (no mask):")
     print("  ", show_top(tok, logits, None))
 
     names: list[str] = list(decoder.functions)
     allowed: set[int] = {i for i in decoder.name_ids
-               if any(n.startswith(decoder.texts[i]) for n in names)}
+                         if any(n.startswith(decoder.texts[i]) for n in names)}
     print(f"3. MASK: only {len(allowed)} of {tok.vocab_size} tokens "
           "can start a function name:")
     print("  ", show_top(tok, logits, allowed))
