@@ -1,6 +1,5 @@
 import json
-from typing import Any, List, Dict
-
+from typing import Any
 from pydantic import BaseModel
 
 from src.models import FunctionDefinition
@@ -47,13 +46,15 @@ Answer:"""
 
 
 class PromptBuilder(BaseModel):
-    """Builds and formats system prompts containing function definitions and user requests."""
+    """Builds and formats system prompts containing
+                      function definitions and user requests."""
 
     @staticmethod
     def format_functions_catalog(
         list_of_functions: list[FunctionDefinition],
     ) -> str:
-        """Formats a list of function definitions into a compact JSON string catalog."""
+        """Formats a list of function definitions
+                         into a compact JSON string catalog."""
 
         catalog: list[dict[str, Any]] = []
         for function in list_of_functions:
@@ -73,8 +74,9 @@ class PromptBuilder(BaseModel):
     def build_prompt(
         list_of_functions: list[FunctionDefinition], user_prompt: str
     ) -> str:
-        """Builds the final prompt string by filling the system prompt template."""
-        
+        """Builds the final prompt string by
+                         filling the system prompt template."""
+
         return SYSTEM_PROMPT_TEMPLATE.format(
             functions_catalog=PromptBuilder.format_functions_catalog(
                 list_of_functions),

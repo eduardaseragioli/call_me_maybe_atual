@@ -62,7 +62,8 @@ class Parser(BaseModel):
                      file_path: str) -> bool:
         """Serializes and saves function call results to a JSON file."""
         try:
-            data: list[dict[str, Any]] = [result.model_dump() for result in results]
+            data: list[dict[str, Any]] = [result.model_dump()
+                                          for result in results]
             with open(file_path, "w", encoding="utf-8") as file:
                 json.dump(data, file, indent=2, ensure_ascii=False)
         except OSError as exc:
